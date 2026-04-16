@@ -49,6 +49,7 @@ Route::prefix('student')
         Route::get('/courses', [StudentDashboardController::class, 'courses'])->name('student.courses');
         Route::get('/completed', [StudentDashboardController::class, 'completedCourses'])->name('student.completed-courses');
         Route::get('/continue/{courseId}', [StudentDashboardController::class, 'continueLearning'])->name('student.continue-learning');
+        Route::put('/profile/location', [StudentDashboardController::class, 'updateLocation'])->name('student.profile.location');
 
         // Enrollment
         Route::post('/enroll/{courseId}', [EnrollmentController::class, 'store'])->name('student.enroll');

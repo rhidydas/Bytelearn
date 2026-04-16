@@ -1,6 +1,6 @@
-import { BookOpen, Play, Clock, CheckCircle2, Trophy, Bell, TrendingUp, Award, MessageSquare, Bot, ArrowRight, Star, BarChart3, Plus, Trash2, Edit2, Filter } from 'lucide-react';
+import { BookOpen, Play, Clock, CheckCircle2, Trophy, Bell, TrendingUp, Award, MessageSquare, Bot, ArrowRight, Star, BarChart3, Plus, Trash2, Edit2, Filter, MapPin, Map } from 'lucide-react';
 import { ImageWithFallback } from './ImageWithFallback';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 interface StudentDashboardProps {
     onNavigate?: (page: string) => void;
@@ -9,6 +9,9 @@ interface StudentDashboardProps {
         name: string;
         email: string;
         role: 'student' | 'instructor' | null;
+        location?: string | null;
+        lat?: number | null;
+        lon?: number | null;
     } | null;
     data?: {
         enrolledCourses?: any[];
@@ -32,6 +35,7 @@ interface StudentDashboardProps {
             lessonsCompleted: number;
         }[];
         currentUserPoints?: number;
+        nearbyStudents?: any[];
     };
 }
 
@@ -56,6 +60,20 @@ export function StudentDashboard({ onNavigate, user, data }: StudentDashboardPro
     const [newDiscussionContent, setNewDiscussionContent] = useState('');
     const [isPostingDiscussion, setIsPostingDiscussion] = useState(false);
 
+    // Profile settings
+    const [location, setLocation] = useState(user?.location || '');
+    const [latitude, setLatitude] = useState<number | null>(user?.lat || null);
+    const [longitude, setLongitude] = useState<number | null>(user?.lon || null);
+    const [shareEmail, setShareEmail] = useState<boolean>(user?.share_email ?? true);
+    const [contactModalStudent, setContactModalStudent] = useState<any>(null);
+    const [isUpdatingLocation, setIsUpdatingLocation] = useState(false);
+    const [isFetchingLocation, setIsFetchingLocation] = useState(false);
+
+    // Nearby Students logic
+    const [nearbyStudents, setNearbyStudents] = useState<any[]>(data?.nearbyStudents || []);
+    const [calculatingRoutes, setCalculatingRoutes] = useState(false);
+    const [selectedMapStudentId, setSelectedMapStudentId] = useState<number | null>(null);
+
     // Use data passed from Laravel
     const enrolledCourses = data?.enrolledCourses || [];
 
@@ -71,6 +89,88 @@ export function StudentDashboard({ onNavigate, user, data }: StudentDashboardPro
     const filteredDiscussions = selectedLessonFilter 
         ? allDiscussions.filter((d: any) => d.lesson_id === selectedLessonFilter)
         : allDiscussions;
+
+    // Check OSRM distances for nearby students
+    useEffect(() => {
+        const checkRouteDistances = async () => {
+            if (!user?.lat || !user?.lon || !nearbyStudents.length || calculatingRoutes) return;
+            
+            setCalculatingRoutes(true);
+            const updatedStudents = [...nearbyStudents];
+            
+            for (let i = 0; i < updatedStudents.length; i++) {
+                const student = updatedStudents[i];
+                if (!student.route_distance) {
+                    try {
+                        const response = await fetch(`https://router.project-osrm.org/route/v1/driving/${user.lon},${user.lat};${student.lon},${student.lat}?overview=true&geometries=geojson`);
+                        if (response.ok) {
+                            const routeData = await response.json();
+                            if (routeData.routes && routeData.routes[0]) {
+                                // Convert meters to km
+                                student.route_distance = (routeData.routes[0].distance / 1000).toFixed(2);
+                                student.route_geometry = routeData.routes[0].geometry;
+                            }
+                        }
+                    } catch (e) {
+                        console.error('OSRM route error', e);
+                    }
+                }
+            }
+            
+            setNearbyStudents([...updatedStudents]);
+            setCalculatingRoutes(false);
+        };
+        
+        checkRouteDistances();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    // Draw Map when a student is selected
+    useEffect(() => {
+        if (!selectedMapStudentId || !user?.lat || !user?.lon) return;
+
+        const selectedTgt = nearbyStudents.find(s => s.id === selectedMapStudentId);
+        if (!selectedTgt) return;
+
+        const L = (window as any).L;
+        if (!L) return;
+
+        const mapId = `leaflet-map-${selectedMapStudentId}`;
+        const mapContainer = document.getElementById(mapId);
+        if (!mapContainer || (mapContainer as any)._leaflet_map) return;
+
+        // Initialize the map
+        const map = L.map(mapId);
+        (mapContainer as any)._leaflet_map = map;
+
+        L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '&copy; OpenStreetMap'
+        }).addTo(map);
+
+        L.marker([user.lat, user.lon]).addTo(map).bindPopup('You are here!').openPopup();
+        L.marker([selectedTgt.lat, selectedTgt.lon]).addTo(map).bindPopup(`${selectedTgt.name}'s Location`);
+
+        // Draw Route line if available from OSRM, else straight line polyline
+        if (selectedTgt.route_geometry && selectedTgt.route_geometry.coordinates) {
+            // geojson uses [lon, lat], convert to [lat, lon]
+            const coords = selectedTgt.route_geometry.coordinates.map((c: number[]) => [c[1], c[0]]);
+            const routeLine = L.polyline(coords, {color: 'green', weight: 5, opacity: 0.7}).addTo(map);
+            map.fitBounds(routeLine.getBounds(), { padding: [50, 50] });
+        } else {
+            const latlngs = [
+                [user.lat, user.lon],
+                [selectedTgt.lat, selectedTgt.lon]
+            ];
+            const polyline = L.polyline(latlngs, {color: 'blue', dashArray: '5, 10', weight: 4}).addTo(map);
+            map.fitBounds(polyline.getBounds(), { padding: [50, 50] });
+        }
+
+        return () => {
+            map.remove();
+            delete (mapContainer as any)._leaflet_map;
+        };
+    }, [selectedMapStudentId, nearbyStudents, user?.lat, user?.lon]);
 
     // Handle Add Note
     const handleAddNote = async () => {
@@ -385,6 +485,109 @@ export function StudentDashboard({ onNavigate, user, data }: StudentDashboardPro
         { label: "Learning Streak", value: data?.stats?.learningStreak?.toString() || "0 days", icon: <TrendingUp className="w-5 h-5" />, color: "bg-purple-100 text-purple-600" },
         { label: "Certificates Earned", value: data?.stats?.certificatesEarned?.toString() || "0", icon: <Award className="w-5 h-5" />, color: "bg-orange-100 text-orange-600" }
     ];
+
+    const handleFetchLocation = () => {
+        if (!navigator.geolocation) {
+            alert('Geolocation is not supported by your browser');
+            return;
+        }
+
+        setIsFetchingLocation(true);
+        navigator.geolocation.getCurrentPosition(
+            async (position) => {
+                try {
+                    const { latitude: lat, longitude: lon } = position.coords;
+                    setLatitude(lat);
+                    setLongitude(lon);
+                    
+                    // Using OpenStreetMap Nominatim API for reverse geocoding
+                    const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`);
+                    
+                    if (response.ok) {
+                        const data = await response.json();
+                        // Set the exact, fully detailed physical location
+                        setLocation(data.display_name || 'Exact location not found');
+                    } else {
+                        alert('Could not pinpoint exact location details.');
+                    }
+                } catch (error) {
+                    console.error('Error fetching location details:', error);
+                    alert('Error determining location address.');
+                } finally {
+                    setIsFetchingLocation(false);
+                }
+            },
+            (error) => {
+                console.error('Geolocation error:', error);
+                alert('Unable to retrieve your location. Please check browser permissions.');
+                setIsFetchingLocation(false);
+            }
+        );
+    };
+
+    const handleUpdateLocation = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setIsUpdatingLocation(true);
+        let finalLat = latitude;
+        let finalLon = longitude;
+
+        try {
+            if ((!latitude || !longitude) && location.trim().length > 0) {
+                // Generate fallback queries to guarantee at least a city/region match
+                const searchQueries = [location];
+                
+                if (location.includes(',')) {
+                    const parts = location.split(',').map(p => p.trim());
+                    if (parts.length > 1) searchQueries.push(parts.slice(1).join(', ')); // Drop first chunk
+                    if (parts.length > 2) searchQueries.push(parts.slice(-2).join(', ')); // Just last 2 chunks
+                    searchQueries.push(parts[parts.length - 1]); // Just the last chunk
+                } else {
+                    const words = location.split(/\s+/);
+                    if (words.length > 3) {
+                        searchQueries.push(words.slice(-2).join(' ')); // Try last 2 words
+                        searchQueries.push(words[words.length - 1]); // Try last word
+                    }
+                }
+
+                // Exhaust queries until a coordinate is found
+                for (const query of searchQueries) {
+                    try {
+                        const geoResp = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=1`);
+                        const geoData = await geoResp.json();
+                        if (geoData && geoData.length > 0) {
+                            finalLat = parseFloat(geoData[0].lat);
+                            finalLon = parseFloat(geoData[0].lon);
+                            break; // Stop at first valid resolution!
+                        }
+                    } catch (e) {
+                        console.error('Geocoding retry failed for', query);
+                    }
+                }
+            }
+
+            const csrfToken = (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement)?.content || '';
+            const response = await fetch('/student/profile/location', {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': csrfToken,
+                },
+                body: JSON.stringify({ location, latitude: finalLat, longitude: finalLon, share_email: shareEmail })
+            });
+            const result = await response.json();
+            if (response.ok) {
+                alert('Location updated successfully! Refreshing to synchronize your study buddies...');
+                window.location.reload();
+            } else {
+                alert('Error: ' + (result.message || 'Failed to update location'));
+                setIsUpdatingLocation(false);
+            }
+        } catch (error) {
+            console.error('Error updating location:', error);
+            alert('Error updating location');
+            setIsUpdatingLocation(false);
+        }
+    };
 
     const userName = user?.name || 'Student';
 
@@ -769,7 +972,7 @@ export function StudentDashboard({ onNavigate, user, data }: StudentDashboardPro
                         {/* Lesson Notes */}
                         <section>
                             <div className="flex items-center justify-between mb-6">
-                                <h2 className="text-2xl font-bold">Lesson Notes</h2>
+                                <h2 className="text-2xl font-bold">Lesson Notesf</h2>
                                 <BookOpen className="w-5 h-5 text-blue-600" />
                             </div>
 
@@ -970,9 +1173,209 @@ export function StudentDashboard({ onNavigate, user, data }: StudentDashboardPro
                                 </a>
                             </div>
                         </section>
+
+                        {/* Location Settings */}
+                        <section className="bg-white rounded-xl shadow-sm p-5">
+                            <h3 className="text-lg font-semibold mb-4">Profile Settings</h3>
+                            <form onSubmit={handleUpdateLocation} className="space-y-3">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Your Location</label>
+                                    <div className="flex gap-2">
+                                        <input
+                                            type="text"
+                                            value={location}
+                                            onChange={(e) => setLocation(e.target.value)}
+                                            placeholder="e.g. New York, USA"
+                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={handleFetchLocation}
+                                            disabled={isFetchingLocation}
+                                            title="Auto-detect location"
+                                            className="px-3 py-2 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition-colors border border-gray-300 flex items-center justify-center shrink-0 disabled:opacity-50"
+                                        >
+                                            <MapPin className={`w-5 h-5 ${isFetchingLocation ? 'animate-pulse text-blue-500' : ''}`} />
+                                        </button>
+                                    </div>
+                                    <div className="flex items-center gap-2 mt-2">
+                                        <input
+                                            type="checkbox"
+                                            id="shareEmail"
+                                            checked={shareEmail}
+                                            onChange={(e) => setShareEmail(e.target.checked)}
+                                            className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 cursor-pointer"
+                                        />
+                                        <label htmlFor="shareEmail" className="text-sm text-gray-600 cursor-pointer select-none">
+                                            Allow nearby Study Buddies to email me
+                                        </label>
+                                    </div>
+                                </div>
+                                <button
+                                    type="submit"
+                                    disabled={isUpdatingLocation}
+                                    className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed text-sm font-medium"
+                                >
+                                    {isUpdatingLocation ? 'Updating...' : 'Update Location'}
+                                </button>
+                            </form>
+                        </section>
+
+                        {/* Nearby Students / Study Buddies */}
+                        <section className="bg-white rounded-xl shadow-sm p-5">
+                            <div className="flex items-center gap-2 mb-4">
+                                <MapPin className="w-5 h-5 text-green-600" />
+                                <h3 className="text-lg font-semibold">Nearby Study Buddies</h3>
+                            </div>
+                            
+                            {!latitude || !longitude ? (
+                                <div className="text-sm text-gray-500 bg-gray-50 p-3 rounded-lg border border-gray-200">
+                                    <button 
+                                        onClick={() => window.location.reload()}
+                                        className="mt-3 w-full sm:w-auto px-4 py-2 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-lg text-sm font-medium transition-colors border border-blue-200 flex items-center justify-center gap-2 shadow-sm"
+                                    >
+                                        <MapPin className="w-4 h-4" />
+                                        Find Again
+                                    </button>
+                                </div>
+                            ) : nearbyStudents.length === 0 ? (
+                                <div className="text-sm text-gray-500 bg-gray-50 p-3 rounded-lg border border-gray-200">
+                                    No students found within a 5km radius.
+                                    <button 
+                                        onClick={() => window.location.reload()}
+                                        className="mt-3 w-full sm:w-auto px-4 py-2 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-lg text-sm font-medium transition-colors border border-blue-200 flex items-center justify-center gap-2 shadow-sm"
+                                    >
+                                        <MapPin className="w-4 h-4" />
+                                        Find Again
+                                    </button>
+                                </div>
+                            ) : (
+                                <div className="space-y-3">
+                                    {nearbyStudents.map(student_badge => {
+                                        // Student needs distance <= 5km to be contactable
+                                        const routeDist = parseFloat(student_badge.route_distance || student_badge.straight_distance || "999");
+                                        const isContactable = routeDist <= 5.0;
+
+                                        return (
+                                            <div key={student_badge.id} className="p-3 bg-gray-50 rounded-lg border border-gray-200 flex flex-col gap-3">
+                                                <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
+                                                    <div>
+                                                        <div className="font-semibold text-gray-900">{student_badge.name}</div>
+                                                        <div className="text-xs text-gray-500">
+                                                            {student_badge.location} <br />
+                                                            <span className="font-medium text-gray-700">
+                                                                {student_badge.route_distance ? `🛣️ Route: ${student_badge.route_distance}km` : `📏 Straight Line: ${student_badge.straight_distance}km`}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex gap-2">
+                                                        <button 
+                                                            onClick={() => setSelectedMapStudentId(selectedMapStudentId === student_badge.id ? null : student_badge.id)}
+                                                            className="px-3 py-1.5 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded text-sm font-medium transition-colors border border-blue-200 flex items-center justify-center gap-1 shadow-sm"
+                                                        >
+                                                            <Map className="w-4 h-4" /> 
+                                                            {selectedMapStudentId === student_badge.id ? 'Close Map' : 'View Path'}
+                                                        </button>
+
+                                                        {calculatingRoutes && !student_badge.route_distance ? (
+                                                            <span className="text-xs text-gray-400 animate-pulse px-3 py-1.5 flex items-center">Calculating...</span>
+                                                        ) : isContactable ? (
+                                                            student_badge.email ? (
+                                                                <button 
+                                                                    onClick={() => setContactModalStudent(student_badge)}
+                                                                    className="px-3 py-1.5 bg-green-100 text-green-700 hover:bg-green-200 rounded text-sm font-medium transition-colors border border-green-300 shadow-sm inline-flex items-center gap-1.5"
+                                                                >
+                                                                    👋 Contact
+                                                                </button>
+                                                            ) : (
+                                                                <button
+                                                                    disabled
+                                                                    title="This student chose to keep their email private."
+                                                                    className="px-3 py-1.5 bg-gray-100 text-gray-400 rounded text-sm font-medium border border-gray-200 shadow-sm cursor-not-allowed"
+                                                                >
+                                                                    🔒 Private
+                                                                </button>
+                                                            )
+                                                        ) : (
+                                                            <span className="text-xs text-gray-400 bg-gray-100 px-2 py-1.5 flex items-center rounded border border-gray-200">
+                                                                &gt; 5km away
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                </div>
+
+                                                {/* Leaflet Map Expansion */}
+                                                {selectedMapStudentId === student_badge.id && (
+                                                    <div className="mt-2 w-full pt-3 border-t border-gray-200">
+                                                        <div id={`leaflet-map-${student_badge.id}`} className="w-full h-48 rounded-lg border border-gray-300 relative z-0 shadow-inner"></div>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                        </section>
                     </div>
                 </div>
             </div>
+
+            {/* Contact Modal */}
+            {contactModalStudent && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+                    <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+                        <div className="flex justify-between items-center p-5 border-b border-gray-100 bg-gray-50/50">
+                            <h2 className="text-xl font-bold text-gray-900">Contact Study Buddy</h2>
+                            <button 
+                                onClick={() => setContactModalStudent(null)}
+                                className="text-gray-400 hover:text-gray-600 transition-colors"
+                            >
+                                <Plus className="w-6 h-6 rotate-45" />
+                            </button>
+                        </div>
+                        <div className="p-6">
+                            <div className="flex items-center gap-4 mb-6">
+                                <div className="w-16 h-16 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-xl font-bold border-2 border-blue-200">
+                                    {contactModalStudent.name.split(' ').map((n: string) => n[0]).join('').substring(0, 2).toUpperCase()}
+                                </div>
+                                <div>
+                                    <h3 className="font-semibold text-lg text-gray-900">{contactModalStudent.name}</h3>
+                                    <p className="text-sm text-gray-500 flex items-center gap-1 mt-0.5">
+                                        <MapPin className="w-3.5 h-3.5" />
+                                        {contactModalStudent.straight_distance}km away
+                                    </p>
+                                </div>
+                            </div>
+                            
+                            <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 mb-6 group hover:border-gray-300 transition-colors">
+                                <div className="text-xs text-gray-500 mb-1 font-medium uppercase tracking-wider">Email Address</div>
+                                <div className="text-gray-900 font-medium break-all selection:bg-blue-100 text-lg">
+                                    {contactModalStudent.email}
+                                </div>
+                            </div>
+
+                            <div className="flex gap-3">
+                                <a 
+                                    href={`mailto:${contactModalStudent.email}`}
+                                    className="flex-1 px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium flex items-center justify-center gap-2 shadow-sm"
+                                >
+                                    <MessageSquare className="w-4 h-4" />
+                                    Open Email App
+                                </a>
+                                <button 
+                                    onClick={() => {
+                                        navigator.clipboard.writeText(contactModalStudent.email);
+                                        alert('Email copied to clipboard!');
+                                    }}
+                                    className="px-4 py-2.5 bg-white text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors font-medium shadow-sm hover:shadow"
+                                >
+                                    Copy
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

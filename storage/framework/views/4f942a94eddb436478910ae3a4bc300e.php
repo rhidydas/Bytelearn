@@ -4,8 +4,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>@yield('title', 'ByteLearn - Peer-Led Micro Learning Platform')</title>
+    <meta name="csrf-token" content="<?php echo e(csrf_token()); ?>">
+    <title><?php echo $__env->yieldContent('title', 'ByteLearn - Peer-Led Micro Learning Platform'); ?></title>
 
 <!-- Fonts -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -17,10 +17,10 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
 <!-- Vite enabled -->
-@viteReactRefresh
-@vite(['resources/css/app.css', 'resources/js/app.tsx'])
+<?php echo app('Illuminate\Foundation\Vite')->reactRefresh(); ?>
+<?php echo app('Illuminate\Foundation\Vite')(['resources/css/app.css', 'resources/js/app.tsx']); ?>
 
-@yield('styles')
+<?php echo $__env->yieldContent('styles'); ?>
 
 </head>
 
@@ -30,14 +30,15 @@
 <div id="app"></div>
 
 <!-- Blade Content -->
-@yield('content')
+<?php echo $__env->yieldContent('content'); ?>
 
 <!-- Initial Data from Laravel -->
 <script id="app-data" type="application/json">
-    @json($data ?? $reactData ?? ['page' => 'home', 'user' => null])
+    <?php echo json_encode($data ?? $reactData ?? ['page' => 'home', 'user' => null], 512) ?>
 </script>
 
-@yield('scripts')
+<?php echo $__env->yieldContent('scripts'); ?>
 
 </body>
 </html>
+<?php /**PATH C:\Users\MSI\Documents\GitHub\Bytelearn\resources\views/layouts/app.blade.php ENDPATH**/ ?>
