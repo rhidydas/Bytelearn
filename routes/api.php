@@ -64,3 +64,8 @@ Route::prefix('lessons')->group(function () {
 Route::post('/enrollments/progress', [EnrollmentApiController::class, 'updateProgress'])->middleware('auth:sanctum');
 
 Route::get('/lesson/{lesson}/quiz', [QuizApiController::class, 'forLesson']);
+
+// Instructor Quiz Generation with AI
+Route::post('/instructor/lesson/{lessonId}/quiz/generate', [\App\Http\Controllers\QuizGenerationController::class, 'generate'])->middleware(['web', 'auth']);
+Route::post('/instructor/lesson/{lessonId}/quiz/save', [\App\Http\Controllers\QuizGenerationController::class, 'saveQuiz'])->middleware(['web', 'auth']);
+Route::get('/instructor/lesson/{lessonId}/quiz/questions', [\App\Http\Controllers\QuizGenerationController::class, 'getQuestions'])->middleware(['web', 'auth']);
