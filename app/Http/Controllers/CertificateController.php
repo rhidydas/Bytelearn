@@ -8,6 +8,7 @@ use App\Models\Enrollment;
 use App\Models\Notification;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use App\Services\NotificationService;
 
 class CertificateController extends Controller
 {
@@ -45,6 +46,8 @@ class CertificateController extends Controller
                 'verification_code' => $this->generateVerificationCode(),
                 'issue_date' => now(),
             ]);
+
+            NotificationService::send($student,"Your certificate has been generated for \"{$course->title}\"!");
 
             // Create notification
             Notification::create([
@@ -90,6 +93,8 @@ class CertificateController extends Controller
             'verification_code' => $this->generateVerificationCode(),
             'issue_date' => now(),
         ]);
+
+        NotificationService::send($student,"Your certificate is ready for download 🎓");
 
         return response()->json([
             'success' => true,

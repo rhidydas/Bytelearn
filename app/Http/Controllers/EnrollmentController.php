@@ -6,6 +6,8 @@ use App\Models\Course;
 use App\Models\Enrollment;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use App\Services\NotificationService;
+
 
 class EnrollmentController extends Controller
 {
@@ -36,9 +38,12 @@ class EnrollmentController extends Controller
             'enrollment_date' => now(),
             'progress' => 0,
         ]);
+        // 📩 EMAIL: Course Enrollment
+        NotificationService::send($student, "You have successfully enrolled in the course!");
 
         if ($request->wantsJson() || $request->is('api/*')) {
              return response()->json(['message' => 'Successfully enrolled'], 201);
+             
         }
 
         return redirect()->route('student.dashboard')
@@ -72,21 +77,33 @@ class EnrollmentController extends Controller
         ]);
 
         $student = Auth::user();
-        
+
         $enrollment = Enrollment::where('user_id', $student->id)
-                                ->where('course_id', $request->course_id)
-                                ->first();
+                        ->where('course_id', $request->course_id)
+                        ->first();
 
         if ($enrollment) {
-            $enrollment->progress = $request->progress;
-            $enrollment->save();
-            
-            // Update learning streak for consecutive day tracking
-            $student->updateLearningStreak();
-            
-            return response()->json(['message' => 'Progress updated', 'progress' => $enrollment->progress]);
-        }
 
-        return response()->json(['message' => 'Enrollment not found'], 404);
+        $previousProgress = $enrollment->progress;
+
+        $enrollment->progress = $request->progress;
+        $enrollment->save();
+
+    // 📩 Send completion email only once
+        if ($request->progress == 100 && $previousProgress < 100) {
+        NotificationService::send(
+            $student,
+            "Congratulations! You have completed the course 🎉"
+        );
     }
+
+    $student->updateLearningStreak();
+
+    return response()->json([
+        'message' => 'Progress updated',
+        'progress' => $enrollment->progress
+    ]);
+}
+    return response()->json(['message' => 'Enrollment not found'], 404);
+}
 }
