@@ -56,10 +56,14 @@ class CertificateController extends Controller
             return back()->with('error', 'You are not enrolled in this course.');
         }
 
-        // Mark as 100% complete
+        $previousProgress = $enrollment->progress;
+
         $enrollment->progress = 100;
         $enrollment->save();
 
+        // 📩 SEND COMPLETION EMAIL
+        if ($previousProgress < 100) {NotificationService::send($student,"Congratulations! You have completed the course 🎉");}
+    
         // Check if certificate already exists
         $existingCertificate = Certificate::where('user_id', $student->id)
             ->where('course_id', $courseId)
