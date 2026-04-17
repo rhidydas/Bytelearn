@@ -125,7 +125,7 @@ export const CourseEditor: React.FC<CourseEditorProps> = ({ courseId, onNavigate
 
     const loadQuizQuestions = async (lessonId: number) => {
         try {
-            const res = await axios.get(`/instructor/lesson/${lessonId}/quiz/questions`);
+            const res = await axios.get(`/api/instructor/lesson/${lessonId}/quiz/questions`);
             setQuizQuestions(res.data.questions || []);
         } catch (error) {
             console.error('Error loading quiz:', error);
@@ -175,7 +175,7 @@ export const CourseEditor: React.FC<CourseEditorProps> = ({ courseId, onNavigate
                 setIsGeneratingQuiz(false);
                 return;
             }
-            const res = await axios.post(`/instructor/lesson/${editingLessonId}/quiz/generate`, {
+            const res = await axios.post(`/api/instructor/lesson/${editingLessonId}/quiz/generate`, {
                 existingCount: quizQuestions.length,
                 lessonTitle: lessonData.title,
                 lessonContent: lessonData.content,
@@ -194,7 +194,7 @@ export const CourseEditor: React.FC<CourseEditorProps> = ({ courseId, onNavigate
     const saveQuizQuestions = async (lessonId: number) => {
         if (quizQuestions.length === 0) return;
         try {
-            await axios.post(`/instructor/lesson/${lessonId}/quiz/save`, { questions: quizQuestions });
+            await axios.post(`/api/instructor/lesson/${lessonId}/quiz/save`, { questions: quizQuestions });
         } catch (error) {
             console.error('Error saving quiz:', error);
         }

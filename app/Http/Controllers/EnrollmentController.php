@@ -6,10 +6,11 @@ use App\Models\Course;
 use App\Models\Certificate;
 use App\Models\Enrollment;
 use App\Models\Notification;
+use App\Services\NotificationService;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Schema;
-use Illuminate\Database\QueryException;
 
 class EnrollmentController extends Controller
 {
@@ -40,9 +41,16 @@ class EnrollmentController extends Controller
             'enrollment_date' => now(),
             'progress' => 0,
         ]);
+        // 📩 EMAIL: Course Enrollment (best-effort)
+        try {
+            NotificationService::send($student, 'You have successfully enrolled in the course!');
+        } catch (\Throwable $e) {
+            // ignore
+        }
 
         if ($request->wantsJson() || $request->is('api/*')) {
              return response()->json(['message' => 'Successfully enrolled'], 201);
+             
         }
 
         return redirect()->route('student.dashboard')
@@ -76,44 +84,71 @@ class EnrollmentController extends Controller
         ]);
 
         $student = Auth::user();
-        
+
+        $courseId = (int) $request->course_id;
         $enrollment = Enrollment::where('user_id', $student->id)
-                                ->where('course_id', $request->course_id)
-                                ->first();
+            ->where('course_id', $courseId)
+            ->first();
 
-        if ($enrollment) {
-            $enrollment->progress = (int) $request->progress;
-            $enrollment->save();
-            
-            // Update learning streak for consecutive day tracking
-            $student->updateLearningStreak();
+        if (!$enrollment) {
+            return response()->json(['message' => 'Enrollment not found'], 404);
+        }
 
-            // Auto-issue certificate when progress hits 100%
-            if ($enrollment->progress >= 100) {
-                $courseId = (int) $request->course_id;
-                $course = Course::find($courseId);
+        $previousProgress = (int) ($enrollment->progress ?? 0);
+        $newProgress = (int) $request->progress;
 
-                $existingCertificate = Certificate::where('user_id', $student->id)
-                    ->where('course_id', $courseId)
-                    ->first();
+        $enrollment->progress = $newProgress;
+        $enrollment->save();
 
-                if (!$existingCertificate) {
+        // 📩 Send completion email only once
+        if ($newProgress >= 100 && $previousProgress < 100) {
+            try {
+                NotificationService::send($student, 'Congratulations! You have completed the course 🎉');
+            } catch (\Throwable $e) {
+                // ignore
+            }
+        }
+
+        // Update learning streak for consecutive day tracking
+        $student->updateLearningStreak();
+
+        // Auto-issue certificate when progress hits 100% (idempotent)
+        if ($newProgress >= 100) {
+            $course = Course::find($courseId);
+
+            $existingCertificate = Certificate::where('user_id', $student->id)
+                ->where('course_id', $courseId)
+                ->first();
+
+            if (!$existingCertificate) {
+                $createdCertificate = false;
+                try {
+                    $certificate = new Certificate([
+                        'user_id' => $student->id,
+                        'course_id' => $courseId,
+                        'verification_code' => strtoupper('CERT-' . date('YmdHis') . '-' . strtoupper(uniqid())),
+                        'issue_date' => now(),
+                    ]);
+
+                    $certificate->timestamps = Schema::hasColumn('certificates', 'created_at')
+                        && Schema::hasColumn('certificates', 'updated_at');
+                    $certificate->save();
+
+                    $createdCertificate = true;
+                } catch (QueryException $e) {
+                    // ignore (unique constraint / race)
+                }
+
+                if ($createdCertificate && $course) {
+                    // Best-effort email about certificate
                     try {
-                        $certificate = new Certificate([
-                            'user_id' => $student->id,
-                            'course_id' => $courseId,
-                            'verification_code' => strtoupper('CERT-' . date('YmdHis') . '-' . strtoupper(uniqid())),
-                            'issue_date' => now(),
-                        ]);
-
-                        $certificate->timestamps = Schema::hasColumn('certificates', 'created_at')
-                            && Schema::hasColumn('certificates', 'updated_at');
-                        $certificate->save();
-                    } catch (QueryException $e) {
-                        // If another request created it first, ignore.
+                        NotificationService::send($student, "Your certificate has been generated for \"{$course->title}\"!");
+                    } catch (\Throwable $e) {
+                        // ignore
                     }
 
-                    if (Schema::hasTable('notifications') && $course) {
+                    // Best-effort in-app notification
+                    if (Schema::hasTable('notifications')) {
                         try {
                             Notification::create([
                                 'user_id' => $student->id,
@@ -122,15 +157,16 @@ class EnrollmentController extends Controller
                                 'type' => 'success',
                             ]);
                         } catch (QueryException $e) {
-                            // ignore notification failures
+                            // ignore
                         }
                     }
                 }
             }
-            
-            return response()->json(['message' => 'Progress updated', 'progress' => $enrollment->progress]);
         }
 
-        return response()->json(['message' => 'Enrollment not found'], 404);
+        return response()->json([
+            'message' => 'Progress updated',
+            'progress' => $enrollment->progress,
+        ]);
     }
 }

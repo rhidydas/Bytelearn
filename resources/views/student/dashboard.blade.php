@@ -4,11 +4,16 @@
 
 @section('scripts')
 @php
+    $currentUser = $student ?? auth()->user();
     $userData = [
-        'id' => $student->id ?? auth()->user()->id,
-        'name' => $student->name ?? auth()->user()->name,
-        'email' => $student->email ?? auth()->user()->email,
-        'role' => 'student'
+        'id' => $currentUser->id,
+        'name' => $currentUser->name,
+        'email' => $currentUser->email,
+        'role' => 'student',
+        'location' => $currentUser->locationRecord->location_string ?? $currentUser->location,
+        'lat' => $currentUser->locationRecord->latitude ?? null,
+        'lon' => $currentUser->locationRecord->longitude ?? null,
+        'share_email' => $currentUser->locationRecord->share_email ?? true,
     ];
 
     $enrolledCoursesData = $enrolledCourses->map(function($enrollment) use ($courseProgress) {
@@ -49,6 +54,7 @@
             privateNotes: @json($privateNotes),
             enrolledLessions: @json($enrolledLessions),
             recentDiscussions: @json($recentDiscussions),
+            nearbyStudents: @json($nearbyStudents),
             stats: {
                 'ongoingCourses': {{ $ongoingCourses }},
                 'completedCourses': {{ $completedCourses }},

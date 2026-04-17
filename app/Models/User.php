@@ -19,6 +19,7 @@ class User extends Authenticatable
         'picture',
         'learning_streak',
         'last_activity_date',
+        'location',
     ];
 
     protected $hidden = [
@@ -99,6 +100,11 @@ class User extends Authenticatable
     public function notifications(): HasMany
     {
         return $this->hasMany(Notification::class, 'user_id');
+    }
+
+    public function locationRecord()
+    {
+        return $this->hasOne(Location::class, 'user_id');
     }
 
     public function isInstructor(): bool

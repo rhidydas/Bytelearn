@@ -51,11 +51,18 @@ return [
         'x_title' => env('OPENROUTER_X_TITLE', env('APP_NAME', 'ByteLearn')),
     ],
 
-    // Google AI Studio (Gemini)
+    // Google AI Studio (Gemini) - Used for chatbot
     'gemini' => [
         'key' => env('GEMINI_API_KEY'),
         'model' => env('GEMINI_MODEL', 'gemma-3-4b-it'),
         'base_url' => env('GEMINI_BASE_URL', 'https://generativelanguage.googleapis.com/v1beta'),
+    ],
+
+    // Lena - Gemini API for Quiz Generation (independent from chatbot)
+    'gemini_quiz' => [
+        'api_key' => env('GEMINI_API_KEY_QUIZ'),
+        'model' => env('GEMINI_MODEL_QUIZ', 'gemini-1.5-flash'),
+        'base_url' => env('GEMINI_BASE_URL_QUIZ', 'https://generativelanguage.googleapis.com/v1beta'),
     ],
 
     'huggingface' => [

@@ -6,6 +6,7 @@ use App\Models\Course;
 use App\Models\Certificate;
 use App\Models\Enrollment;
 use App\Models\Notification;
+use App\Services\NotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Schema;
@@ -80,10 +81,16 @@ class CertificateController extends Controller
                 $certificate = Certificate::where('user_id', $student->id)
                     ->where('course_id', $courseId)
                     ->first();
-
                 if (!$certificate) {
                     throw $e;
                 }
+            }
+
+            // Best-effort email notification (don't block completion if mail isn't configured)
+            try {
+                NotificationService::send($student, "Your certificate has been generated for \"{$course->title}\"!");
+            } catch (\Throwable $e) {
+                // ignore
             }
 
             // Create notification if the table exists (some installs may not have migrated it yet)
@@ -138,6 +145,12 @@ class CertificateController extends Controller
         ]);
         $certificate->timestamps = $this->certificatesHaveTimestamps();
         $certificate->save();
+
+        try {
+            NotificationService::send($student, "Your certificate is ready for download 🎓");
+        } catch (\Throwable $e) {
+            // ignore
+        }
 
         return response()->json([
             'success' => true,

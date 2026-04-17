@@ -41,4 +41,9 @@ class Lesson extends Model
     {
         return $this->hasMany(Note::class);
     }
+
+    public function quiz()
+    {
+        return $this->hasOne(Quiz::class);
+    }
 }
