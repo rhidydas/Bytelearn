@@ -50,6 +50,9 @@ Route::prefix('student')
         Route::get('/completed', [StudentDashboardController::class, 'completedCourses'])->name('student.completed-courses');
         Route::get('/continue/{courseId}', [StudentDashboardController::class, 'continueLearning'])->name('student.continue-learning');
 
+        // Certificates
+        Route::get('/certificates', [CertificateController::class, 'index'])->name('student.certificates');
+
         // Enrollment
         Route::post('/enroll/{courseId}', [EnrollmentController::class, 'store'])->name('student.enroll');
         Route::delete('/unenroll/{enrollmentId}', [EnrollmentController::class, 'destroy'])->name('student.unenroll');

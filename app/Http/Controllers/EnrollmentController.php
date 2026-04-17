@@ -3,9 +3,13 @@
 namespace App\Http\Controllers;
 
 use App\Models\Course;
+use App\Models\Certificate;
 use App\Models\Enrollment;
+use App\Models\Notification;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Database\QueryException;
 
 class EnrollmentController extends Controller
 {
@@ -78,11 +82,51 @@ class EnrollmentController extends Controller
                                 ->first();
 
         if ($enrollment) {
-            $enrollment->progress = $request->progress;
+            $enrollment->progress = (int) $request->progress;
             $enrollment->save();
             
             // Update learning streak for consecutive day tracking
             $student->updateLearningStreak();
+
+            // Auto-issue certificate when progress hits 100%
+            if ($enrollment->progress >= 100) {
+                $courseId = (int) $request->course_id;
+                $course = Course::find($courseId);
+
+                $existingCertificate = Certificate::where('user_id', $student->id)
+                    ->where('course_id', $courseId)
+                    ->first();
+
+                if (!$existingCertificate) {
+                    try {
+                        $certificate = new Certificate([
+                            'user_id' => $student->id,
+                            'course_id' => $courseId,
+                            'verification_code' => strtoupper('CERT-' . date('YmdHis') . '-' . strtoupper(uniqid())),
+                            'issue_date' => now(),
+                        ]);
+
+                        $certificate->timestamps = Schema::hasColumn('certificates', 'created_at')
+                            && Schema::hasColumn('certificates', 'updated_at');
+                        $certificate->save();
+                    } catch (QueryException $e) {
+                        // If another request created it first, ignore.
+                    }
+
+                    if (Schema::hasTable('notifications') && $course) {
+                        try {
+                            Notification::create([
+                                'user_id' => $student->id,
+                                'title' => 'Certificate Earned!',
+                                'message' => "Congratulations! You received a certificate for successfully completing the \"{$course->title}\" course.",
+                                'type' => 'success',
+                            ]);
+                        } catch (QueryException $e) {
+                            // ignore notification failures
+                        }
+                    }
+                }
+            }
             
             return response()->json(['message' => 'Progress updated', 'progress' => $enrollment->progress]);
         }

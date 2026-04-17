@@ -20,6 +20,7 @@ import { LoginForm } from './components/auth/LoginForm';
 import { RegisterForm } from './components/auth/RegisterForm';
 
 import { CourseDetails } from './components/CourseDetails';
+import { CertificatesPage } from './components/CertificatesPage';
 
 type Page = 'home' | 'student-dashboard' | 'instructor-dashboard' | 'course-editor' | 'lesson-player' | 'courses' | 'login' | 'register' | 'blade' | 'course-details' | 'certificates' | 'instructor-analytics';
 type UserRole = 'student' | 'instructor' | null;
@@ -65,6 +66,8 @@ export default function App({ initialData = {} }: AppProps) {
             window.location.href = '/instructor/dashboard';
         } else if (page === 'courses') {
             window.location.href = '/courses';
+        } else if (page === 'certificates') {
+            window.location.href = '/student/certificates';
         } else if (page === 'login') {
             window.location.href = '/login';
         } else if (page === 'register') {
@@ -121,6 +124,13 @@ export default function App({ initialData = {} }: AppProps) {
                 <LessonPlayer
                     courseId={initialData.courseId}
                     initialLessonId={initialData.lessonId}
+                    user={user}
+                    onNavigate={handleNavigate}
+                />
+            )}
+            {currentPage === 'certificates' && (
+                <CertificatesPage
+                    certificates={initialData.certificates || []}
                     user={user}
                     onNavigate={handleNavigate}
                 />

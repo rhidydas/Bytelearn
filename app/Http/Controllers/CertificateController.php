@@ -8,9 +8,36 @@ use App\Models\Enrollment;
 use App\Models\Notification;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Database\QueryException;
 
 class CertificateController extends Controller
 {
+    private static ?bool $certificatesHaveTimestamps = null;
+    private static ?bool $notificationsTableExists = null;
+
+    private function certificatesHaveTimestamps(): bool
+    {
+        if (self::$certificatesHaveTimestamps !== null) {
+            return self::$certificatesHaveTimestamps;
+        }
+
+        self::$certificatesHaveTimestamps = Schema::hasColumn('certificates', 'created_at')
+            && Schema::hasColumn('certificates', 'updated_at');
+
+        return self::$certificatesHaveTimestamps;
+    }
+
+    private function notificationsTableExists(): bool
+    {
+        if (self::$notificationsTableExists !== null) {
+            return self::$notificationsTableExists;
+        }
+
+        self::$notificationsTableExists = Schema::hasTable('notifications');
+        return self::$notificationsTableExists;
+    }
+
     /**
      * Complete a course - mark as done, generate certificate, send notification
      */
@@ -34,25 +61,44 @@ class CertificateController extends Controller
 
         // Check if certificate already exists
         $existingCertificate = Certificate::where('user_id', $student->id)
-                                          ->where('course_id', $courseId)
-                                          ->first();
+            ->where('course_id', $courseId)
+            ->first();
 
         if (!$existingCertificate) {
-            // Create certificate
-            $certificate = Certificate::create([
-                'user_id' => $student->id,
-                'course_id' => $courseId,
-                'verification_code' => $this->generateVerificationCode(),
-                'issue_date' => now(),
-            ]);
+            // Create certificate (supports legacy schema without created_at/updated_at)
+            try {
+                $certificate = new Certificate([
+                    'user_id' => $student->id,
+                    'course_id' => $courseId,
+                    'verification_code' => $this->generateVerificationCode(),
+                    'issue_date' => now(),
+                ]);
+                $certificate->timestamps = $this->certificatesHaveTimestamps();
+                $certificate->save();
+            } catch (QueryException $e) {
+                // If a race hits the unique(user_id,course_id) constraint, fetch the existing row.
+                $certificate = Certificate::where('user_id', $student->id)
+                    ->where('course_id', $courseId)
+                    ->first();
 
-            // Create notification
-            Notification::create([
-                'user_id' => $student->id,
-                'title' => 'Certificate Earned!',
-                'message' => "Congratulations! You received a certificate for successfully completing the \"{$course->title}\" course.",
-                'type' => 'success',
-            ]);
+                if (!$certificate) {
+                    throw $e;
+                }
+            }
+
+            // Create notification if the table exists (some installs may not have migrated it yet)
+            if ($this->notificationsTableExists()) {
+                try {
+                    Notification::create([
+                        'user_id' => $student->id,
+                        'title' => 'Certificate Earned!',
+                        'message' => "Congratulations! You received a certificate for successfully completing the \"{$course->title}\" course.",
+                        'type' => 'success',
+                    ]);
+                } catch (QueryException $e) {
+                    // Don't block completion if notifications are misconfigured.
+                }
+            }
         }
 
         return redirect()->route('student.dashboard')
@@ -70,7 +116,7 @@ class CertificateController extends Controller
         // Check if course is completed
         $enrollment = $course->enrollments()->where('user_id', $student->id)->first();
 
-        if (!$enrollment || !$enrollment->isCompleted()) {
+        if (!$enrollment || ((int) ($enrollment->progress ?? 0)) < 100) {
             return back()->with('error', 'Course not yet completed');
         }
 
@@ -83,13 +129,15 @@ class CertificateController extends Controller
             return response()->download(storage_path('certificates/' . $existingCertificate->id . '.pdf'));
         }
 
-        // Create certificate
-        $certificate = Certificate::create([
+        // Create certificate (supports legacy schema without created_at/updated_at)
+        $certificate = new Certificate([
             'user_id' => $student->id,
             'course_id' => $courseId,
             'verification_code' => $this->generateVerificationCode(),
             'issue_date' => now(),
         ]);
+        $certificate->timestamps = $this->certificatesHaveTimestamps();
+        $certificate->save();
 
         return response()->json([
             'success' => true,

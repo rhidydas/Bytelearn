@@ -70,11 +70,13 @@ class StudentDashboardController extends Controller
             $query->where('user_id', $student->id);
         }])->get()->map(function($cert) {
             $userReview = $cert->course->reviews->first();
+
+            $completedAt = $cert->issue_date ?? $cert->created_at;
             return [
                 'id' => $cert->course->id,
                 'title' => $cert->course->title,
                 'instructor' => $cert->course->instructor->name ?? 'Instructor',
-                'completedDate' => $cert->created_at->format('M d, Y'),
+                'completedDate' => $completedAt ? $completedAt->format('M d, Y') : '—',
                 'rating' => $userReview ? $userReview->rating : 0,
                 'certificate' => true,
                 'certificateId' => $cert->id
