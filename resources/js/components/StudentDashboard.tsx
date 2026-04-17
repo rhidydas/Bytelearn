@@ -569,6 +569,7 @@ export function StudentDashboard({ onNavigate, user, data }: StudentDashboardPro
             const response = await fetch('/student/profile/location', {
                 method: 'PUT',
                 headers: {
+                    'Accept': 'application/json',
                     'Content-Type': 'application/json',
                     'X-CSRF-TOKEN': csrfToken,
                 },
