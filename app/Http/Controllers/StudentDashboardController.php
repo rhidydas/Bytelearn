@@ -136,6 +136,52 @@ class StudentDashboardController extends Controller
             }
         }
 
+        // Get nearby students (within ~5km straight line)
+        $nearbyStudents = [];
+        $currentUserLocation = $student->locationRecord;
+        if ($currentUserLocation && $currentUserLocation->latitude && $currentUserLocation->longitude) {
+            $lat1 = $currentUserLocation->latitude;
+            $lon1 = $currentUserLocation->longitude;
+
+            $otherUsers = User::where('role', 'student')
+                                ->where('id', '!=', $student->id)
+                                ->whereHas('locationRecord', function($q) {
+                                    $q->whereNotNull('latitude')->whereNotNull('longitude');
+                                })
+                                ->with('locationRecord')
+                                ->get();
+
+            foreach ($otherUsers as $otherUser) {
+                $lat2 = $otherUser->locationRecord->latitude;
+                $lon2 = $otherUser->locationRecord->longitude;
+
+                // Haversine formula
+                $theta = $lon1 - $lon2;
+                $val = sin(deg2rad($lat1)) * sin(deg2rad($lat2)) + cos(deg2rad($lat1)) * cos(deg2rad($lat2)) * cos(deg2rad($theta));
+                $val = max(-1, min(1, $val));
+                $dist = acos($val);
+                $dist = rad2deg($dist);
+                $kilometers = $dist * 60 * 1.1515 * 1.609344;
+
+                if ($kilometers <= 5) {
+                    $nearbyStudents[] = [
+                        'id' => $otherUser->id,
+                        'name' => $otherUser->name,
+                        'email' => $otherUser->locationRecord->share_email ? $otherUser->email : null,
+                        'location' => $otherUser->locationRecord->location_string,
+                        'straight_distance' => round($kilometers, 2),
+                        'lat' => $lat2,
+                        'lon' => $lon2,
+                    ];
+                }
+            }
+            
+            // Sort by straight-line distance
+            usort($nearbyStudents, function($a, $b) {
+                return $a['straight_distance'] <=> $b['straight_distance'];
+            });
+        }
+
         return view('student.dashboard', [
             'student' => $student,
             'enrolledCourses' => $enrolledCourses,
@@ -150,7 +196,8 @@ class StudentDashboardController extends Controller
             'completedCoursesData' => $completedCoursesData,
             'privateNotes' => $privateNotes,
             'enrolledLessions' => $enrolledLessions,
-            'recentDiscussions' => $recentDiscussions
+            'recentDiscussions' => $recentDiscussions,
+            'nearbyStudents' => $nearbyStudents
         ]);
     }
 
@@ -247,11 +294,49 @@ class StudentDashboardController extends Controller
                     'name' => $student->name,
                     'email' => $student->email,
                     'role' => $student->role,
+                    'location' => $student->location,
+                    'lat' => $student->locationRecord->latitude ?? null,
+                    'lon' => $student->locationRecord->longitude ?? null,
                 ],
                 'courseId' => (int) $course->id,
                 'lessonId' => (int) $nextLesson->id,
             ],
         ]);
+    }
+
+    /**
+     * Update student location
+     */
+    public function updateLocation(Request $request)
+    {
+        $request->validate([
+            'location' => 'required|string|max:255',
+            'latitude' => 'nullable|numeric',
+            'longitude' => 'nullable|numeric',
+        ]);
+
+        $user = Auth::user();
+        
+        // Save string directly on user model for legacy compatibility
+        $user->location = $request->location;
+        $user->save();
+        
+        // Save details to dedicated locations table
+        \App\Models\Location::updateOrCreate(
+            ['user_id' => $user->id],
+            [
+                'location_string' => $request->location,
+                'latitude' => $request->latitude,
+                'longitude' => $request->longitude,
+                'share_email' => $request->has('share_email') ? $request->share_email : true,
+            ]
+        );
+
+        if ($request->wantsJson()) {
+            return response()->json(['message' => 'Location updated successfully', 'location' => $user->location]);
+        }
+
+        return redirect()->back()->with('success', 'Location updated successfully');
     }
 }
 

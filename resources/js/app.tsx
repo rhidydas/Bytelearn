@@ -32,6 +32,7 @@ interface AppProps {
             name: string;
             email: string;
             role: UserRole;
+            location?: string | null;
         };
         dashboardData?: any;
         courseId?: number;
