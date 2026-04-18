@@ -26,10 +26,17 @@ export const CertificatesPage: React.FC<CertificatesPageProps> = ({ certificates
     const [selectedCertificate, setSelectedCertificate] = useState<Certificate | null>(null);
     const certificateRef = useRef<HTMLDivElement>(null);
 
+    const getAwardedYear = (issueDateRaw?: string) => {
+        if (!issueDateRaw) return new Date().getFullYear();
+        const dt = new Date(issueDateRaw);
+        return Number.isNaN(dt.getTime()) ? new Date().getFullYear() : dt.getFullYear();
+    };
+
     const handleDownload = (cert: Certificate) => {
         // Create a printable version
         const printWindow = window.open('', '_blank');
         if (printWindow) {
+            const awardedYear = getAwardedYear(cert.issueDateRaw);
             printWindow.document.write(`
                 <!DOCTYPE html>
                 <html>
@@ -148,7 +155,7 @@ export const CertificatesPage: React.FC<CertificatesPageProps> = ({ certificates
                             <p>has successfully completed the course</p>
                             <div class="course-title">${cert.courseTitle}</div>
                             <div class="badge">
-                                <span>Awarded<br/>2024</span>
+                                    <span>Awarded<br/>${awardedYear}</span>
                             </div>
                         </div>
                         <div class="footer">
@@ -292,7 +299,7 @@ export const CertificatesPage: React.FC<CertificatesPageProps> = ({ certificates
 
                                         {/* Badge */}
                                         <div className="w-20 h-20 bg-slate-600 rounded-full flex items-center justify-center mx-auto text-white text-xs text-center">
-                                            <span>Awarded<br />2024</span>
+                                            <span>Awarded<br />{getAwardedYear(selectedCertificate.issueDateRaw)}</span>
                                         </div>
                                     </div>
 
