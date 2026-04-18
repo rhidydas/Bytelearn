@@ -1186,7 +1186,7 @@ export function StudentDashboard({ onNavigate, user, data }: StudentDashboardPro
                                             type="text"
                                             value={location}
                                             onChange={(e) => setLocation(e.target.value)}
-                                            placeholder="e.g. New York, USA"
+                                            placeholder="e.g. Dhaka, Bangladesh"
                                             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                                         />
                                         <button
