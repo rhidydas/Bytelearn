@@ -973,7 +973,7 @@ export function StudentDashboard({ onNavigate, user, data }: StudentDashboardPro
                         {/* Lesson Notes */}
                         <section>
                             <div className="flex items-center justify-between mb-6">
-                                <h2 className="text-2xl font-bold">Lesson Notesf</h2>
+                                <h2 className="text-2xl font-bold">Lesson Notes</h2>
                                 <BookOpen className="w-5 h-5 text-blue-600" />
                             </div>
 
