@@ -1,6 +1,6 @@
-import { BookOpen, Play, Clock, CheckCircle2, Trophy, Bell, TrendingUp, Award, MessageSquare, Bot, ArrowRight, Star, BarChart3, Plus, Trash2, Edit2, Filter, MapPin, Map } from 'lucide-react';
+import { BookOpen, Play, Clock, CheckCircle2, Trophy, Bell, TrendingUp, Award, MessageSquare, Bot, ArrowRight, Star, BarChart3, Plus, Trash2, Edit2, Filter, MapPin, Map, LogIn } from 'lucide-react';
 import { ImageWithFallback } from './ImageWithFallback';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 
 interface StudentDashboardProps {
     onNavigate?: (page: string) => void;
@@ -46,7 +46,7 @@ export function StudentDashboard({ onNavigate, user, data }: StudentDashboardPro
     const [editingNoteId, setEditingNoteId] = useState<number | null>(null);
     const [editingContent, setEditingContent] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
-
+    const [expandedNoteId, setExpandedNoteId] = useState<number | null>(null);
     // State management - Lesson Notes
     const [selectedLessonId, setSelectedLessonId] = useState<number | null>(null);
     const [lessonNotes, setLessonNotes] = useState<Record<number, any[]>>({});
@@ -80,24 +80,26 @@ export function StudentDashboard({ onNavigate, user, data }: StudentDashboardPro
     const completedCourses = data?.completedCourses || [];
 
     const notifications = data?.notifications || [];
-    
+
     const enrolledLessions = data?.enrolledLessions || [];
-    
+
     const allDiscussions = data?.recentDiscussions || [];
-    
+
     // Filter discussions by lesson if selected
-    const filteredDiscussions = selectedLessonFilter 
-        ? allDiscussions.filter((d: any) => d.lesson_id === selectedLessonFilter)
-        : allDiscussions;
+    const filteredDiscussions = useMemo(() => {
+        return selectedLessonFilter
+            ? allDiscussions.filter((d: any) => d.lesson_id === selectedLessonFilter)
+            : allDiscussions;
+    }, [allDiscussions, selectedLessonFilter]);
 
     // Check OSRM distances for nearby students
     useEffect(() => {
         const checkRouteDistances = async () => {
             if (!user?.lat || !user?.lon || !nearbyStudents.length || calculatingRoutes) return;
-            
+
             setCalculatingRoutes(true);
             const updatedStudents = [...nearbyStudents];
-            
+
             for (let i = 0; i < updatedStudents.length; i++) {
                 const student = updatedStudents[i];
                 if (!student.route_distance) {
@@ -116,13 +118,13 @@ export function StudentDashboard({ onNavigate, user, data }: StudentDashboardPro
                     }
                 }
             }
-            
+
             setNearbyStudents([...updatedStudents]);
             setCalculatingRoutes(false);
         };
-        
+
         checkRouteDistances();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     // Draw Map when a student is selected
@@ -155,14 +157,14 @@ export function StudentDashboard({ onNavigate, user, data }: StudentDashboardPro
         if (selectedTgt.route_geometry && selectedTgt.route_geometry.coordinates) {
             // geojson uses [lon, lat], convert to [lat, lon]
             const coords = selectedTgt.route_geometry.coordinates.map((c: number[]) => [c[1], c[0]]);
-            const routeLine = L.polyline(coords, {color: 'green', weight: 5, opacity: 0.7}).addTo(map);
+            const routeLine = L.polyline(coords, { color: 'green', weight: 5, opacity: 0.7 }).addTo(map);
             map.fitBounds(routeLine.getBounds(), { padding: [50, 50] });
         } else {
             const latlngs = [
                 [user.lat, user.lon],
                 [selectedTgt.lat, selectedTgt.lon]
             ];
-            const polyline = L.polyline(latlngs, {color: 'blue', dashArray: '5, 10', weight: 4}).addTo(map);
+            const polyline = L.polyline(latlngs, { color: 'blue', dashArray: '5, 10', weight: 4 }).addTo(map);
             map.fitBounds(polyline.getBounds(), { padding: [50, 50] });
         }
 
@@ -175,11 +177,11 @@ export function StudentDashboard({ onNavigate, user, data }: StudentDashboardPro
     // Handle Add Note
     const handleAddNote = async () => {
         if (!newNote.trim()) return;
-        
+
         setIsSubmitting(true);
         try {
             const csrfToken = (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement)?.content || '';
-            
+
             const response = await fetch('/student/notes', {
                 method: 'POST',
                 headers: {
@@ -188,10 +190,10 @@ export function StudentDashboard({ onNavigate, user, data }: StudentDashboardPro
                 },
                 body: JSON.stringify({ content: newNote })
             });
-            
+
             const result = await response.json();
             console.log('Add Note Response:', result);
-            
+
             if (result.success && result.data) {
                 const formattedNote = {
                     id: result.data.id,
@@ -217,11 +219,11 @@ export function StudentDashboard({ onNavigate, user, data }: StudentDashboardPro
     // Handle Update Note
     const handleUpdateNote = async (noteId: number) => {
         if (!editingContent.trim()) return;
-        
+
         setIsSubmitting(true);
         try {
             const csrfToken = (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement)?.content || '';
-            
+
             const response = await fetch(`/student/notes/${noteId}`, {
                 method: 'PUT',
                 headers: {
@@ -230,10 +232,10 @@ export function StudentDashboard({ onNavigate, user, data }: StudentDashboardPro
                 },
                 body: JSON.stringify({ content: editingContent })
             });
-            
+
             const result = await response.json();
             console.log('Update Note Response:', result);
-            
+
             if (result.success && result.data) {
                 const formattedNote = {
                     id: result.data.id,
@@ -259,21 +261,21 @@ export function StudentDashboard({ onNavigate, user, data }: StudentDashboardPro
     // Handle Delete Note
     const handleDeleteNote = async (noteId: number) => {
         if (!confirm('Are you sure you want to delete this note?')) return;
-        
+
         setIsSubmitting(true);
         try {
             const csrfToken = (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement)?.content || '';
-            
+
             const response = await fetch(`/student/notes/${noteId}`, {
                 method: 'DELETE',
                 headers: {
                     'X-CSRF-TOKEN': csrfToken,
                 }
             });
-            
+
             const result = await response.json();
             console.log('Delete Note Response:', result);
-            
+
             if (result.success) {
                 setNotes(notes.filter(n => n.id !== noteId));
                 alert('Note deleted successfully!');
@@ -298,7 +300,7 @@ export function StudentDashboard({ onNavigate, user, data }: StudentDashboardPro
         try {
             const response = await fetch(`/student/lesson/${lessonId}/notes`);
             const result = await response.json();
-            
+
             if (result.success) {
                 const formattedNotes = result.data.map((note: any) => ({
                     id: note.id,
@@ -317,11 +319,11 @@ export function StudentDashboard({ onNavigate, user, data }: StudentDashboardPro
     // Handle Add Lesson Note
     const handleAddLessonNote = async () => {
         if (!newLessonNote.trim() || !selectedLessonId) return;
-        
+
         setIsSubmitting(true);
         try {
             const csrfToken = (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement)?.content || '';
-            
+
             const response = await fetch(`/student/lesson/${selectedLessonId}/notes`, {
                 method: 'POST',
                 headers: {
@@ -330,9 +332,9 @@ export function StudentDashboard({ onNavigate, user, data }: StudentDashboardPro
                 },
                 body: JSON.stringify({ content: newLessonNote })
             });
-            
+
             const result = await response.json();
-            
+
             if (result.success && result.data) {
                 const formattedNote = {
                     id: result.data.id,
@@ -360,11 +362,11 @@ export function StudentDashboard({ onNavigate, user, data }: StudentDashboardPro
     // Handle Update Lesson Note
     const handleUpdateLessonNote = async (noteId: number) => {
         if (!editingLessonNoteContent.trim()) return;
-        
+
         setIsSubmitting(true);
         try {
             const csrfToken = (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement)?.content || '';
-            
+
             const response = await fetch(`/student/lesson-notes/${noteId}`, {
                 method: 'PUT',
                 headers: {
@@ -373,9 +375,9 @@ export function StudentDashboard({ onNavigate, user, data }: StudentDashboardPro
                 },
                 body: JSON.stringify({ content: editingLessonNoteContent })
             });
-            
+
             const result = await response.json();
-            
+
             if (result.success && selectedLessonId) {
                 const formattedNote = {
                     id: result.data.id,
@@ -401,20 +403,20 @@ export function StudentDashboard({ onNavigate, user, data }: StudentDashboardPro
     // Handle Delete Lesson Note
     const handleDeleteLessonNote = async (noteId: number) => {
         if (!confirm('Are you sure?')) return;
-        
+
         setIsSubmitting(true);
         try {
             const csrfToken = (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement)?.content || '';
-            
+
             const response = await fetch(`/student/lesson-notes/${noteId}`, {
                 method: 'DELETE',
                 headers: {
                     'X-CSRF-TOKEN': csrfToken,
                 }
             });
-            
+
             const result = await response.json();
-            
+
             if (result.success && selectedLessonId) {
                 setLessonNotes(prev => ({
                     ...prev,
@@ -439,7 +441,7 @@ export function StudentDashboard({ onNavigate, user, data }: StudentDashboardPro
         setIsPostingDiscussion(true);
         try {
             const csrfToken = (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement)?.content || '';
-            
+
             const response = await fetch(`/student/lesson/${selectedDiscussionLessonId}/discussion`, {
                 method: 'POST',
                 headers: {
@@ -448,7 +450,7 @@ export function StudentDashboard({ onNavigate, user, data }: StudentDashboardPro
                 },
                 body: JSON.stringify({ content: newDiscussionContent })
             });
-            
+
             if (response.ok) {
                 alert('Discussion posted successfully!');
                 setNewDiscussionContent('');
@@ -469,22 +471,24 @@ export function StudentDashboard({ onNavigate, user, data }: StudentDashboardPro
     // Process leaderboard data
     const rawLeaderboard = data?.leaderboard || [];
     // If empty (e.g. fresh db), add current user placeholder if logged in
-    const displayLeaderboard = rawLeaderboard.length > 0 ? rawLeaderboard.map((item, index) => ({
-        rank: index + 1,
-        name: item.id === user?.id ? "You" : item.name,
-        points: item.points,
-        avatar: item.name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase(),
-        isCurrentUser: item.id === user?.id,
-    })) : [
-        { rank: 1, name: "You", points: data?.currentUserPoints || 0, avatar: user?.name?.split(' ').map((n: string) => n[0]).join('').substring(0, 2).toUpperCase() || "ME", isCurrentUser: true }
-    ];
+    const displayLeaderboard = useMemo(() => {
+        return rawLeaderboard.length > 0 ? rawLeaderboard.map((item, index) => ({
+            rank: index + 1,
+            name: item.id === user?.id ? "You" : item.name,
+            points: item.points,
+            avatar: item.name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase(),
+            isCurrentUser: item.id === user?.id,
+        })) : [
+            { rank: 1, name: "You", points: data?.currentUserPoints || 0, avatar: user?.name?.split(' ').map((n: string) => n[0]).join('').substring(0, 2).toUpperCase() || "ME", isCurrentUser: true }
+        ];
+    }, [rawLeaderboard, data?.currentUserPoints, user?.id, user?.name]);
 
-    const stats = [
+    const stats = useMemo(() => [
         { label: "Courses Enrolled", value: data?.stats?.ongoingCourses?.toString() || "0", icon: <BookOpen className="w-5 h-5" />, color: "bg-blue-100 text-blue-600" },
         { label: "Courses Completed", value: data?.stats?.completedCourses?.toString() || "0", icon: <CheckCircle2 className="w-5 h-5" />, color: "bg-green-100 text-green-600" },
         { label: "Learning Streak", value: data?.stats?.learningStreak?.toString() || "0 days", icon: <TrendingUp className="w-5 h-5" />, color: "bg-purple-100 text-purple-600" },
         { label: "Certificates Earned", value: data?.stats?.certificatesEarned?.toString() || "0", icon: <Award className="w-5 h-5" />, color: "bg-orange-100 text-orange-600" }
-    ];
+    ], [data?.stats]);
 
     const handleFetchLocation = () => {
         if (!navigator.geolocation) {
@@ -499,10 +503,10 @@ export function StudentDashboard({ onNavigate, user, data }: StudentDashboardPro
                     const { latitude: lat, longitude: lon } = position.coords;
                     setLatitude(lat);
                     setLongitude(lon);
-                    
+
                     // Using OpenStreetMap Nominatim API for reverse geocoding
                     const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`);
-                    
+
                     if (response.ok) {
                         const data = await response.json();
                         // Set the exact, fully detailed physical location
@@ -535,7 +539,7 @@ export function StudentDashboard({ onNavigate, user, data }: StudentDashboardPro
             if ((!latitude || !longitude) && location.trim().length > 0) {
                 // Generate fallback queries to guarantee at least a city/region match
                 const searchQueries = [location];
-                
+
                 if (location.includes(',')) {
                     const parts = location.split(',').map(p => p.trim());
                     if (parts.length > 1) searchQueries.push(parts.slice(1).join(', ')); // Drop first chunk
@@ -602,13 +606,22 @@ export function StudentDashboard({ onNavigate, user, data }: StudentDashboardPro
                             <h1 className="text-3xl font-bold mb-2">Welcome back, {userName}! 👋</h1>
                             <p className="text-gray-600">Let's continue your learning journey</p>
                         </div>
-                        <button
-                            onClick={() => onNavigate?.('courses')}
-                            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                        >
-                            <BookOpen className="w-5 h-5" />
-                            Browse Courses
-                        </button>
+                        <div className="flex gap-3">
+                            <button
+                                onClick={() => onNavigate?.('login')}
+                                className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                            >
+                                <LogIn className="w-5 h-5" />
+                                Login Page
+                            </button>
+                            <button
+                                onClick={() => onNavigate?.('courses')}
+                                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                            >
+                                <BookOpen className="w-5 h-5" />
+                                Browse Courses
+                            </button>
+                        </div>
                     </div>
 
                     {/* Stats Cards */}
@@ -744,7 +757,10 @@ export function StudentDashboard({ onNavigate, user, data }: StudentDashboardPro
                                             ))}
                                         </div>
                                         {course.certificate && (
-                                            <button className="w-full px-4 py-2 border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors flex items-center justify-center gap-2">
+                                            <button
+                                                onClick={() => onNavigate?.('certificates')}
+                                                className="w-full px-4 py-2 border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"
+                                            >
                                                 <Award className="w-4 h-4" />
                                                 View Certificate
                                             </button>
@@ -785,19 +801,29 @@ export function StudentDashboard({ onNavigate, user, data }: StudentDashboardPro
                             </div>
 
                             {/* Notes List */}
-                            <div className="space-y-4">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 items-start">
                                 {notes.length === 0 ? (
-                                    <div className="text-center py-12 bg-white rounded-xl border border-dashed border-gray-300">
+                                    <div className="col-span-full text-center py-12 bg-white rounded-xl border border-dashed border-gray-300">
                                         <MessageSquare className="w-12 h-12 text-gray-300 mx-auto mb-3" />
                                         <p className="text-gray-500 mb-2">No private notes yet.</p>
                                         <p className="text-gray-400 text-sm">Create your first note to get started!</p>
                                     </div>
                                 ) : (
-                                    notes.map((note) => (
-                                        <div key={note.id} className="bg-white rounded-xl shadow-sm p-5 border border-gray-100 hover:shadow-md transition-shadow">
+                                    notes.map((note) => {
+                                        const isExpanded = expandedNoteId === note.id;
+                                        return (
+                                        <div 
+                                            key={note.id} 
+                                            onClick={() => {
+                                                if (!isExpanded && editingNoteId !== note.id) {
+                                                    setExpandedNoteId(note.id);
+                                                }
+                                            }}
+                                            className={`bg-white rounded-xl shadow-sm p-5 border border-gray-100 hover:shadow-md transition-all ${!isExpanded ? 'cursor-pointer hover:border-blue-300' : ''}`}
+                                        >
                                             {editingNoteId === note.id ? (
                                                 // Edit Mode
-                                                <div>
+                                                <div onClick={(e) => e.stopPropagation()}>
                                                     <textarea
                                                         value={editingContent}
                                                         onChange={(e) => setEditingContent(e.target.value)}
@@ -827,42 +853,53 @@ export function StudentDashboard({ onNavigate, user, data }: StudentDashboardPro
                                                 // View Mode
                                                 <div>
                                                     <div className="flex items-start justify-between mb-2">
-                                                        <div className="flex-1">
-                                                            <p className="text-gray-800 mb-2 whitespace-pre-wrap break-words">{note.content}</p>
+                                                        <div className="flex-1 w-full">
+                                                            <p className={`text-gray-800 mb-2 whitespace-pre-wrap break-words ${!isExpanded ? 'line-clamp-3' : ''}`}>{note.content}</p>
                                                         </div>
                                                     </div>
-                                                    <div className="flex items-center justify-between">
+                                                    <div className="flex items-end justify-between mt-4">
                                                         <div className="text-xs text-gray-500">
-                                                            Created: {note.createdAt}
+                                                            {note.createdAt}
                                                             {note.updatedAt !== note.createdAt && (
-                                                                <div>Updated: {note.updatedAt}</div>
+                                                                <div className="mt-1">Updated: {note.updatedAt}</div>
                                                             )}
                                                         </div>
-                                                        <div className="flex gap-2">
-                                                            <button
-                                                                onClick={() => {
-                                                                    setEditingNoteId(note.id);
-                                                                    setEditingContent(note.content);
-                                                                }}
-                                                                className="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                                                                title="Edit note"
-                                                            >
-                                                                <Edit2 className="w-4 h-4" />
-                                                            </button>
-                                                            <button
-                                                                onClick={() => handleDeleteNote(note.id)}
-                                                                disabled={isSubmitting}
-                                                                className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                                                title="Delete note"
-                                                            >
-                                                                <Trash2 className="w-4 h-4" />
-                                                            </button>
-                                                        </div>
+                                                        {isExpanded && (
+                                                            <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
+                                                                <button
+                                                                    onClick={() => {
+                                                                        setEditingNoteId(note.id);
+                                                                        setEditingContent(note.content);
+                                                                    }}
+                                                                    className="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                                                    title="Edit note"
+                                                                >
+                                                                    <Edit2 className="w-4 h-4" />
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => handleDeleteNote(note.id)}
+                                                                    disabled={isSubmitting}
+                                                                    className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                                                    title="Delete note"
+                                                                >
+                                                                    <Trash2 className="w-4 h-4" />
+                                                                </button>
+                                                            </div>
+                                                        )}
                                                     </div>
+                                                    {isExpanded && (
+                                                        <button 
+                                                            className="text-xs font-medium text-blue-600 hover:text-blue-800 mt-3 pt-3 border-t border-gray-100 w-full text-left" 
+                                                            onClick={(e) => { e.stopPropagation(); setExpandedNoteId(null); }}
+                                                        >
+                                                            Show Less
+                                                        </button>
+                                                    )}
                                                 </div>
                                             )}
                                         </div>
-                                    ))
+                                        );
+                                    })
                                 )}
                             </div>
                         </section>
@@ -968,134 +1005,6 @@ export function StudentDashboard({ onNavigate, user, data }: StudentDashboardPro
                                     ))
                                 )}
                             </div>
-                        </section>
-
-                        {/* Lesson Notes */}
-                        <section>
-                            <div className="flex items-center justify-between mb-6">
-                                <h2 className="text-2xl font-bold">Lesson Notes</h2>
-                                <BookOpen className="w-5 h-5 text-blue-600" />
-                            </div>
-
-                            {/* Select Lesson */}
-                            <div className="mb-6 bg-white rounded-xl shadow-sm p-4">
-                                <label className="block text-sm font-medium text-gray-700 mb-2">Choose a Lesson:</label>
-                                <select
-                                    value={selectedLessonId || ''}
-                                    onChange={(e) => {
-                                        const lessonId = e.target.value ? parseInt(e.target.value) : null;
-                                        if (lessonId) handleLoadLessonNotes(lessonId);
-                                    }}
-                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                >
-                                    <option value="">Select a lesson...</option>
-                                    {enrolledLessions.map((lesson: any) => (
-                                        <option key={lesson.id} value={lesson.id}>
-                                            {lesson.title} ({lesson.course_title})
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
-
-                            {/* Lesson Notes Content */}
-                            {selectedLessonId && (
-                                <div className="space-y-4">
-                                    {/* Add Lesson Note Form */}
-                                    <div className="bg-white rounded-xl shadow-sm p-5 border border-gray-100">
-                                        <div className="mb-4">
-                                            <textarea
-                                                value={newLessonNote}
-                                                onChange={(e) => setNewLessonNote(e.target.value)}
-                                                placeholder="Add a note for this lesson..."
-                                                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
-                                                rows={3}
-                                            />
-                                        </div>
-                                        <div className="flex justify-end">
-                                            <button
-                                                onClick={handleAddLessonNote}
-                                                disabled={!newLessonNote.trim() || isSubmitting}
-                                                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
-                                            >
-                                                <Plus className="w-4 h-4" />
-                                                {isSubmitting ? 'Adding...' : 'Add Note'}
-                                            </button>
-                                        </div>
-                                    </div>
-
-                                    {/* Lesson Notes List */}
-                                    {(lessonNotes[selectedLessonId] || []).length === 0 ? (
-                                        <div className="text-center py-12 bg-white rounded-xl border border-dashed border-gray-300">
-                                            <BookOpen className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                                            <p className="text-gray-500 mb-2">No notes for this lesson yet.</p>
-                                            <p className="text-gray-400 text-sm">Create a note to get started!</p>
-                                        </div>
-                                    ) : (
-                                        <div className="space-y-4">
-                                            {(lessonNotes[selectedLessonId] || []).map((note) => (
-                                                <div key={note.id} className="bg-white rounded-xl shadow-sm p-5 border border-gray-100">
-                                                    {editingLessonNoteId === note.id ? (
-                                                        // Edit Mode
-                                                        <div>
-                                                            <textarea
-                                                                value={editingLessonNoteContent}
-                                                                onChange={(e) => setEditingLessonNoteContent(e.target.value)}
-                                                                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none mb-3"
-                                                                rows={3}
-                                                            />
-                                                            <div className="flex justify-end gap-2">
-                                                                <button
-                                                                    onClick={() => {
-                                                                        setEditingLessonNoteId(null);
-                                                                        setEditingLessonNoteContent('');
-                                                                    }}
-                                                                    className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-                                                                >
-                                                                    Cancel
-                                                                </button>
-                                                                <button
-                                                                    onClick={() => handleUpdateLessonNote(note.id)}
-                                                                    disabled={!editingLessonNoteContent.trim() || isSubmitting}
-                                                                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
-                                                                >
-                                                                    Save
-                                                                </button>
-                                                            </div>
-                                                        </div>
-                                                    ) : (
-                                                        // View Mode
-                                                        <div>
-                                                            <p className="text-gray-800 mb-3 whitespace-pre-wrap break-words">{note.content}</p>
-                                                            <div className="flex items-center justify-between">
-                                                                <div className="text-xs text-gray-500">
-                                                                    Created: {note.createdAt}
-                                                                </div>
-                                                                <div className="flex gap-2">
-                                                                    <button
-                                                                        onClick={() => {
-                                                                            setEditingLessonNoteId(note.id);
-                                                                            setEditingLessonNoteContent(note.content);
-                                                                        }}
-                                                                        className="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                                                                    >
-                                                                        <Edit2 className="w-4 h-4" />
-                                                                    </button>
-                                                                    <button
-                                                                        onClick={() => handleDeleteLessonNote(note.id)}
-                                                                        className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                                                                    >
-                                                                        <Trash2 className="w-4 h-4" />
-                                                                    </button>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            ))}
-                                        </div>
-                                    )}
-                                </div>
-                            )}
                         </section>
                     </div>
                     <div className="lg:col-span-1 space-y-6">
@@ -1228,10 +1137,10 @@ export function StudentDashboard({ onNavigate, user, data }: StudentDashboardPro
                                 <MapPin className="w-5 h-5 text-green-600" />
                                 <h3 className="text-lg font-semibold">Nearby Study Buddies</h3>
                             </div>
-                            
+
                             {!latitude || !longitude ? (
                                 <div className="text-sm text-gray-500 bg-gray-50 p-3 rounded-lg border border-gray-200">
-                                    <button 
+                                    <button
                                         onClick={() => window.location.reload()}
                                         className="mt-3 w-full sm:w-auto px-4 py-2 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-lg text-sm font-medium transition-colors border border-blue-200 flex items-center justify-center gap-2 shadow-sm"
                                     >
@@ -1242,7 +1151,7 @@ export function StudentDashboard({ onNavigate, user, data }: StudentDashboardPro
                             ) : nearbyStudents.length === 0 ? (
                                 <div className="text-sm text-gray-500 bg-gray-50 p-3 rounded-lg border border-gray-200">
                                     No students found within a 5km radius.
-                                    <button 
+                                    <button
                                         onClick={() => window.location.reload()}
                                         className="mt-3 w-full sm:w-auto px-4 py-2 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-lg text-sm font-medium transition-colors border border-blue-200 flex items-center justify-center gap-2 shadow-sm"
                                     >
@@ -1270,11 +1179,11 @@ export function StudentDashboard({ onNavigate, user, data }: StudentDashboardPro
                                                         </div>
                                                     </div>
                                                     <div className="flex gap-2">
-                                                        <button 
+                                                        <button
                                                             onClick={() => setSelectedMapStudentId(selectedMapStudentId === student_badge.id ? null : student_badge.id)}
                                                             className="px-3 py-1.5 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded text-sm font-medium transition-colors border border-blue-200 flex items-center justify-center gap-1 shadow-sm"
                                                         >
-                                                            <Map className="w-4 h-4" /> 
+                                                            <Map className="w-4 h-4" />
                                                             {selectedMapStudentId === student_badge.id ? 'Close Map' : 'View Path'}
                                                         </button>
 
@@ -1282,7 +1191,7 @@ export function StudentDashboard({ onNavigate, user, data }: StudentDashboardPro
                                                             <span className="text-xs text-gray-400 animate-pulse px-3 py-1.5 flex items-center">Calculating...</span>
                                                         ) : isContactable ? (
                                                             student_badge.email ? (
-                                                                <button 
+                                                                <button
                                                                     onClick={() => setContactModalStudent(student_badge)}
                                                                     className="px-3 py-1.5 bg-green-100 text-green-700 hover:bg-green-200 rounded text-sm font-medium transition-colors border border-green-300 shadow-sm inline-flex items-center gap-1.5"
                                                                 >
@@ -1327,7 +1236,7 @@ export function StudentDashboard({ onNavigate, user, data }: StudentDashboardPro
                     <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-200">
                         <div className="flex justify-between items-center p-5 border-b border-gray-100 bg-gray-50/50">
                             <h2 className="text-xl font-bold text-gray-900">Contact Study Buddy</h2>
-                            <button 
+                            <button
                                 onClick={() => setContactModalStudent(null)}
                                 className="text-gray-400 hover:text-gray-600 transition-colors"
                             >
@@ -1347,7 +1256,7 @@ export function StudentDashboard({ onNavigate, user, data }: StudentDashboardPro
                                     </p>
                                 </div>
                             </div>
-                            
+
                             <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 mb-6 group hover:border-gray-300 transition-colors">
                                 <div className="text-xs text-gray-500 mb-1 font-medium uppercase tracking-wider">Email Address</div>
                                 <div className="text-gray-900 font-medium break-all selection:bg-blue-100 text-lg">
@@ -1356,14 +1265,14 @@ export function StudentDashboard({ onNavigate, user, data }: StudentDashboardPro
                             </div>
 
                             <div className="flex gap-3">
-                                <a 
+                                <a
                                     href={`mailto:${contactModalStudent.email}`}
                                     className="flex-1 px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium flex items-center justify-center gap-2 shadow-sm"
                                 >
                                     <MessageSquare className="w-4 h-4" />
                                     Open Email App
                                 </a>
-                                <button 
+                                <button
                                     onClick={() => {
                                         navigator.clipboard.writeText(contactModalStudent.email);
                                         alert('Email copied to clipboard!');
