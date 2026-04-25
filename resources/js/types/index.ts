@@ -14,6 +14,7 @@ export interface Lesson {
     content_type: 'video' | 'text' | 'pdf' | 'link' | 'mixed';
     video_url?: string;
     pdf_url?: string;
+    test_url?: string;
     external_link?: string;
     external_link_label?: string;
     sequence_number: number;
