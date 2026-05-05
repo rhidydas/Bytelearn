@@ -1304,14 +1304,25 @@ export function StudentDashboard({ onNavigate, user, data }: StudentDashboardPro
                                                         )}
                                                     </div>
                                                     <div className="flex gap-2">
-                                                        {student_badge.fb && (
-                                                            <button 
-                                                                onClick={() => window.open(student_badge.fb, '_blank')}
-                                                                className="px-3 py-1.5 bg-blue-100 text-blue-700 hover:bg-blue-200 rounded text-sm font-medium transition-colors border border-blue-300 shadow-sm inline-flex items-center gap-1.5"
-                                                            >
-                                                                👋 Facebook
-                                                            </button>
-                                                        )}
+                                                        {!student_badge.fb ? (
+                                                            <span className="text-xs text-gray-400 animate-pulse px-3 py-1.5 flex items-center">Calculating...</span>
+                                                        ) : isContactable ? (
+                                                            student_badge.fb ? (
+                                                                <button 
+                                                                    onClick={() => window.open(student_badge.fb, '_blank')}
+                                                                    className="px-3 py-1.5 bg-green-100 text-green-700 hover:bg-green-200 rounded text-sm font-medium transition-colors border border-green-300 shadow-sm inline-flex items-center gap-1.5"
+                                                                >
+                                                                    👋 Facebook
+                                                                </button>
+                                                    
+                                                        ) :
+                                        
+                                                                    
+                                                    
+                                                                
+                                                        
+                                            
+                        
                                                     </div>
                                                 </div>
 
