@@ -31,7 +31,6 @@ export const CourseEditor: React.FC<CourseEditorProps> = ({ courseId, onNavigate
         content: '',
         video_url: '',
         pdf_url: '',
-        test_url: ''
         external_link: '',
         external_link_label: ''
     });
@@ -98,7 +97,7 @@ export const CourseEditor: React.FC<CourseEditorProps> = ({ courseId, onNavigate
     };
 
     const openAddLesson = () => {
-        setLessonData({ title: '', content: '', video_url: '', pdf_url: '', test_url: '', external_link: '', external_link_label: '' });
+        setLessonData({ title: '', content: '', video_url: '', pdf_url: '', external_link: '', external_link_label: '' });
         setEditingLessonId(null);
         setShowLessonForm(true);
         setTimeout(() => {
@@ -112,7 +111,6 @@ export const CourseEditor: React.FC<CourseEditorProps> = ({ courseId, onNavigate
             content: lesson.content || '',
             video_url: lesson.video_url || '',
             pdf_url: lesson.pdf_url || '',
-            test_url: lesson.test_url || '',
             external_link: lesson.external_link || '',
             external_link_label: lesson.external_link_label || ''
         });
@@ -211,7 +209,6 @@ export const CourseEditor: React.FC<CourseEditorProps> = ({ courseId, onNavigate
                 content: lessonData.content,
                 video_url: lessonData.video_url || null,
                 pdf_url: lessonData.pdf_url || null,
-                test_url: lessonData.test_url || null,
                 external_link: lessonData.external_link || null,
                 external_link_label: lessonData.external_link_label || null,
                 sequence_number: editingLessonId
@@ -245,7 +242,7 @@ export const CourseEditor: React.FC<CourseEditorProps> = ({ courseId, onNavigate
             }
 
             setShowLessonForm(false);
-            setLessonData({ title: '', content: '', video_url: '', pdf_url: '', test_url: '', external_link: '', external_link_label: '' });
+            setLessonData({ title: '', content: '', video_url: '', pdf_url: '', external_link: '', external_link_label: '' });
             setQuizQuestions([]);
         } catch (error: any) {
             console.error('Error saving lesson:', error);
@@ -386,24 +383,6 @@ export const CourseEditor: React.FC<CourseEditorProps> = ({ courseId, onNavigate
                                             className="w-full p-2 border border-gray-300 rounded-lg"
                                             value={lessonData.pdf_url}
                                             onChange={e => setLessonData({ ...lessonData, pdf_url: e.target.value })}
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-medium mb-1">Test URL</label>
-                                        <input
-                                            type="url"
-                                            className="w-full p-2 border border-gray-300 rounded-lg"
-                                            value={lessonData.test_url}
-                                            onChange={e => setLessonData({ ...lessonData, test_url: e.target.value })}
-                                        />
-                                    </div>
-                                    <div
-                                        <label className="block text-sm font-medium mb-1">Test URL</label>  
-                                        <input
-                                            type="url"
-                                            className="w-full p-2 border border-gray-300 rounded-lg"
-                                            value={lessonData.test_url}
-                                            onChange={e => setLessonData({ ...lessonData, test_url: e.target.value })}
                                         />
                                     </div>
                                 </div>
