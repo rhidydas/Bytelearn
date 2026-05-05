@@ -18,7 +18,6 @@ class Lesson extends Model
         'sequence_number',
         'video_url',
         'pdf_url',
-        'test_url',
         'external_link',
         'external_link_label',
     ];

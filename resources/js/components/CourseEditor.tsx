@@ -31,7 +31,7 @@ export const CourseEditor: React.FC<CourseEditorProps> = ({ courseId, onNavigate
         content: '',
         video_url: '',
         pdf_url: '',
-        test_url: '',
+        test_url: ''
         external_link: '',
         external_link_label: ''
     });
@@ -389,13 +389,21 @@ export const CourseEditor: React.FC<CourseEditorProps> = ({ courseId, onNavigate
                                         />
                                     </div>
                                     <div>
-                                        <label className="block text-sm font-medium mb-1">Test URL (Optional)</label>
+                                        <label className="block text-sm font-medium mb-1">Test URL</label>
                                         <input
                                             type="url"
                                             className="w-full p-2 border border-gray-300 rounded-lg"
                                             value={lessonData.test_url}
                                             onChange={e => setLessonData({ ...lessonData, test_url: e.target.value })}
-                                            placeholder="Test URL"
+                                        />
+                                    </div>
+                                    <div
+                                        <label className="block text-sm font-medium mb-1">Test URL</label>  
+                                        <input
+                                            type="url"
+                                            className="w-full p-2 border border-gray-300 rounded-lg"
+                                            value={lessonData.test_url}
+                                            onChange={e => setLessonData({ ...lessonData, test_url: e.target.value })}
                                         />
                                     </div>
                                 </div>
