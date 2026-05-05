@@ -402,17 +402,6 @@ export const LessonPlayer: React.FC<LessonPlayerProps> = ({ courseId, initialLes
                                 </div>
                             </a>
                         )}
-                        {currentLesson.test_url && (
-                            <a href={currentLesson.test_url} target="_blank" rel="noreferrer" className="block p-4 border border-gray-200 rounded-lg hover:border-indigo-300 hover:shadow-md transition-all group bg-white">
-                                <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 bg-green-100 text-green-600 rounded-lg flex items-center justify-center text-xl group-hover:scale-110 transition-transform">📝</div>
-                                    <div>
-                                        <div className="font-semibold text-gray-900">Test / Assignment</div>
-                                        <div className="text-sm text-gray-500">Take the test</div>
-                                    </div>
-                                </div>
-                            </a>
-                        )}
                         {currentLesson.external_link && (
                             <a href={currentLesson.external_link} target="_blank" rel="noreferrer" className="block p-4 border border-gray-200 rounded-lg hover:border-indigo-300 hover:shadow-md transition-all group bg-white">
                                 <div className="flex items-center gap-3">
