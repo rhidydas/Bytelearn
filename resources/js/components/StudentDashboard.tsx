@@ -1228,12 +1228,6 @@ export function StudentDashboard({ onNavigate, user, data }: StudentDashboardPro
                                 <MapPin className="w-5 h-5 text-green-600" />
                                 <h3 className="text-lg font-semibold">Nearby Study Buddies</h3>
                             </div>
-                            <button 
-                                                                    onClick={() => setContactModalStudent(student_badge)}
-                                                                    className="px-3 py-1.5 bg-green-100 text-green-700 hover:bg-green-200 rounded text-sm font-medium transition-colors border border-green-300 shadow-sm inline-flex items-center gap-1.5"
-                                                                >
-                                                                    👋 Facebook
-                                                                </button>
                             
                             {!latitude || !longitude ? (
                                 <div className="text-sm text-gray-500 bg-gray-50 p-3 rounded-lg border border-gray-200">
@@ -1255,16 +1249,6 @@ export function StudentDashboard({ onNavigate, user, data }: StudentDashboardPro
                                         <MapPin className="w-4 h-4" />
                                         Find Again
                                     </button>
-                                    <div className="flex gap-2">
-                                                        {student_badge.fb && (
-                                                            <button 
-                                                                onClick={() => window.open(student_badge.fb, '_blank')}
-                                                                className="px-3 py-1.5 bg-blue-100 text-blue-700 hover:bg-blue-200 rounded text-sm font-medium transition-colors border border-blue-300 shadow-sm inline-flex items-center gap-1.5"
-                                                            >
-                                                                👋 Facebook
-                                                            </button>
-                                                        )}
-                                                    </div>
                                 </div>
                             ) : (
                                 <div className="space-y-3">
